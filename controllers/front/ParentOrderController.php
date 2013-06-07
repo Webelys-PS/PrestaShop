@@ -504,6 +504,8 @@ class ParentOrderControllerCore extends FrontController
 			$this->link_conditions .= '&content_only=1';
 		
 		$free_shipping = false;
+		$delivery_option_list = $this->context->cart->getDeliveryOptionList();
+
 		foreach ($this->context->cart->getCartRules() as $rule)
 		{
 			if ($rule['free_shipping'] && !$rule['carrier_restriction'])
@@ -511,6 +513,24 @@ class ParentOrderControllerCore extends FrontController
 				$free_shipping = true;
 				break;
 			}			
+
+			foreach($delivery_option_list as $id_address => $option_list)
+			    foreach ($option_list as $key => $option)
+    			    foreach ($option['carrier_list'] as $carrier)
+    			    {
+            			$cart_rule_free_shipping = Db::getInstance()->executeS('
+		                    SELECT *
+		                    FROM `'._DB_PREFIX_.'cart_rule_carrier`
+		                    WHERE `id_cart_rule` = '.$rule['id_cart_rule'].'
+		                    AND `id_carrier` = '.$carrier['instance']->id
+	                    );
+
+		            if (count($cart_rule_free_shipping) > 0)
+		            {
+    		                $delivery_option_list[$id_address][$key]['total_price_with_tax'] = 0;
+    		                $delivery_option_list[$id_address][$key]['total_price_without_tax'] = 0;
+			    }
+    			}
 		}	
 		$this->context->smarty->assign(array(
 			'free_shipping' => $free_shipping,
@@ -521,7 +541,7 @@ class ParentOrderControllerCore extends FrontController
 			'conditions' => (int)(Configuration::get('PS_CONDITIONS')),
 			'link_conditions' => $this->link_conditions,
 			'recyclable' => (int)($this->context->cart->recyclable),
-			'delivery_option_list' => $this->context->cart->getDeliveryOptionList(),
+			'delivery_option_list' => $delivery_option_list,
 			'carriers' => $this->context->cart->simulateCarriersOutput(),
 			'checked' => $this->context->cart->simulateCarrierSelectedOutput(),
 			'address_collection' => $this->context->cart->getAddressCollection(),

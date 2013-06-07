@@ -437,14 +437,17 @@ class CartRuleCore extends ObjectModel
 		// Check if the carrier chosen by the customer is usable with the cart rule
 		if ($this->carrier_restriction)
 		{
-			if (!$context->cart->id_carrier)
+			if (!$context->cart->id_carrier && $this->code != '')
 				return (!$display_error) ? false : Tools::displayError('You must choose a carrier before applying this voucher to your order');
 			$id_cart_rule = (int)Db::getInstance()->getValue('
 			SELECT crc.id_cart_rule
 			FROM '._DB_PREFIX_.'cart_rule_carrier crc
 			INNER JOIN '._DB_PREFIX_.'carrier c ON (c.id_reference = crc.id_carrier AND c.deleted = 0)
+			INNER JOIN '._DB_PREFIX_.'cart_rule cr ON ( crc.id_cart_rule = cr.id_cart_rule )
 			WHERE crc.id_cart_rule = '.(int)$this->id.'
-			AND c.id_carrier = '.(int)$context->cart->id_carrier);
+			AND c.id_carrier = '.(int)$context->cart->id_carrier.'
+			    OR (cr.code = "" AND '.(int)$context->cart->id_carrier.' = 0)');
+
 			if (!$id_cart_rule)
 				return (!$display_error) ? false : Tools::displayError('You cannot use this voucher with this carrier');
 		}
@@ -1087,7 +1090,7 @@ class CartRuleCore extends ObjectModel
 			return;
 
 		$sql = '
-		SELECT cr.*
+		SELECT DISTINCT cr.*
 		FROM '._DB_PREFIX_.'cart_rule cr
 		LEFT JOIN '._DB_PREFIX_.'cart_rule_shop crs ON cr.id_cart_rule = crs.id_cart_rule
 		LEFT JOIN '._DB_PREFIX_.'cart_rule_carrier crca ON cr.id_cart_rule = crca.id_cart_rule
@@ -1105,6 +1108,7 @@ class CartRuleCore extends ObjectModel
 		AND (
 			cr.carrier_restriction = 0
 			'.($context->cart->id_carrier ? 'OR c.id_carrier = '.(int)$context->cart->id_carrier : '').'
+			OR (cr.carrier_restriction=1 AND cr.code = "")
 		)
 		AND (
 			cr.shop_restriction = 0
